@@ -7,8 +7,11 @@ import com.sakircimen.orderbook.service.TradeService
 import com.sakircimen.orderbook.web.OrderRequest
 import io.vertx.core.Future
 import io.vertx.core.Vertx
+import io.vertx.ext.auth.properties.impl.PropertyFileAuthenticationImpl
+import io.vertx.ext.web.Route
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
+import io.vertx.ext.web.handler.BasicAuthHandler
 import io.vertx.ext.web.handler.BodyHandler
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
@@ -20,21 +23,19 @@ class OrderBookController {
 
     fun routes(vertx: Vertx): Router {
         val router = Router.router(vertx)
+
         router.get("/:currencyStr/orderbook")
-            .produces("application/json")
+            .setup(vertx)
             .handler { handleOrderBookListRequest(it) }
-            .failureHandler { handleException(it) }
 
         router.post("/v1/orders/limit")
-            .consumes("application/json")
             .handler(BodyHandler.create())
+            .setup(vertx)
             .handler { handlePlaceOrderRequest(it) }
-            .failureHandler { handleException(it) }
 
         router.get("/:currencyStr/tradehistory")
-            .produces("application/json")
+            .setup(vertx)
             .handler { handleGetTradeHistoryRequest(it) }
-            .failureHandler { handleException(it) }
 
         return router
     }
@@ -45,6 +46,7 @@ class OrderBookController {
             Json.encodeToString(result)
         )
     }
+
     private fun handleGetTradeHistoryRequest(context: RoutingContext): Future<Void>? {
         val result = tradeService.getTradeHistory(context.pathParam("currencyStr"))
         return context.response().setStatusCode(200).end(
@@ -75,6 +77,20 @@ class OrderBookController {
         val error = it.failure()
         if (error is OrderBookException) {
             it.response().setStatusCode(404).end(Json.encodeToString(error))
+        } else if (it.statusCode() == 401) {
+            it.response().setStatusCode(401).end(
+                "Unauthorized"
+            )
+        } else {
+            it.response().setStatusCode(500).end(
+                "Internal server error"
+            )
         }
+    }
+
+    private fun Route.setup(vertx: Vertx): Route {
+        return this.produces("application/json")
+            .handler(BasicAuthHandler.create(PropertyFileAuthenticationImpl(vertx, "auth.properties")))
+            .failureHandler { handleException(it) }
     }
 }
