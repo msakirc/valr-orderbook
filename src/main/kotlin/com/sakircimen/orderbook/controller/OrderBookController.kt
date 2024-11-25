@@ -48,7 +48,9 @@ class OrderBookController {
     }
 
     private fun handleGetTradeHistoryRequest(context: RoutingContext): Future<Void>? {
-        val result = tradeService.getTradeHistory(context.pathParam("currencyStr"))
+        val offset = context.queryParams().get("offset")?.toInt() ?: 0
+        val limit = context.queryParams().get("limit")?.toInt() ?: 10
+        val result = tradeService.getTradeHistory(context.pathParam("currencyStr"), offset, limit)
         return context.response().setStatusCode(200).end(
             Json.encodeToString(result)
         )
