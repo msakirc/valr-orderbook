@@ -1,22 +1,22 @@
 package com.sakircimen.orderbook
 
+import com.sakircimen.orderbook.controller.OrderBookController
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.Promise
 
 class Application : AbstractVerticle() {
 
+  private val orderBookController = OrderBookController()
+
   override fun start(startPromise: Promise<Void>) {
+    val port = 8082
     vertx
       .createHttpServer()
-      .requestHandler { req ->
-        req.response()
-          .putHeader("content-type", "text/plain")
-          .end("Hello from Vert.x!")
-      }
-      .listen(8888).onComplete { http ->
+      .requestHandler(orderBookController.routes(vertx))
+      .listen(port).onComplete { http ->
         if (http.succeeded()) {
           startPromise.complete()
-          println("HTTP server started on port 8888")
+          println("HTTP server started on port $port")
         } else {
           startPromise.fail(http.cause());
         }
